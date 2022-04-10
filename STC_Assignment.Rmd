@@ -1,7 +1,6 @@
 ---
-title: "Assignment3"
-author: "Created by - Harshita Puraswani,Raina Miriam Jose,Swathy Ezhil"
-date: "3/18/2022"
+title: "STC_DataMining"
+author: "Created by - Swathy Ezhil"
 output: pdf_document
 ---
 
