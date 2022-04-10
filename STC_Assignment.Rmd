@@ -1,0 +1,1078 @@
+---
+title: "Assignment3"
+author: "Created by - Harshita Puraswani,Raina Miriam Jose,Swathy Ezhil"
+date: "3/18/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Retention Modeling at Scholastic Travel Company Analysis
+
+#Libraries Used
+```{r}
+library(plyr)
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library('tidyverse')
+library('ggcorrplot')
+```
+
+```{r}
+options(knitr.duplicate.label = "allow")
+
+```
+
+#### 1. Exploratary data Analysis and Data cleaning
+
+_Importing the file_
+    
+```{r}
+library(readxl)
+df <- read_excel("C:/Users/ETAS/Desktop/STC_Data.xlsx")
+head(df)
+```
+
+__Data Structure__
+
+__Analyzing the data type of variables__
+```{r}
+
+str(df)
+
+```
+__Data inspection - Checking for NA values__
+
+```{r}
+colSums(is.na(df))
+```
+__Above columns have NA values__
+
+__Removing NA Values__
+
+```{r}
+df <- na.omit(df) 
+```
+
+__Summary Statistics__
+```{r}
+summary(df)
+```
+__Displaying all column names__
+
+```{r}
+colnames(df)
+```
+```{r}
+#Converting all categorical variables into numerical variables
+df <- as.data.frame(unclass(df),stringsAsFactors=TRUE)
+str(df)
+
+```
+###Cleaning the data
+
+__Handling columns with strings "NA"__
+```{r}
+#Function to find mode
+find_mode <- function(x) {
+  u <- unique(x)
+  tab <- tabulate(match(x, u))
+  u[tab == max(tab)]
+}
+
+```
+
+```{r}
+#Replacing values of categorical variables with mode and numeric variables with mean
+
+#Variable - From Grade
+df$From.Grade[df$From.Grade == "NA"] <- NA
+mode <- find_mode(df$From.Grade)
+df$From.Grade[is.na(df$From.Grade)] = mode
+
+```
+
+```{r}
+#Variable - To Grade
+df$To.Grade[df$To.Grade == "NA"] <- NA
+mode1 <- find_mode(df$To.Grade)
+df$To.Grade[is.na(df$To.Grade)] = mode1
+
+```
+
+```{r}
+#Variable - CRM Segment
+df$CRM.Segment[df$CRM.Segment == "NA"] <- NA
+mode2 <- find_mode(df$CRM.Segment)
+df$CRM.Segment[is.na(df$CRM.Segment)] = mode2
+
+```
+
+```{r}
+#Variable - High Grade
+df$MDR.High.Grade[df$MDR.High.Grade == "NA"] <- NA
+mode3 <- find_mode(df$MDR.High.Grade)
+df$MDR.High.Grade[is.na(df$MDR.High.Grade)] = mode3
+
+```
+
+```{r}
+#Variable - Difference Travel to First Meeting
+df$DifferenceTraveltoFirstMeeting[df$DifferenceTraveltoFirstMeeting == "NA"] <- NA
+sort(table(df$DifferenceTraveltoFirstMeeting))
+
+```
+
+```{r}
+#Since NA values is has the highest frequency, we cannot use mode function
+#we are replacing the NA rows with the value with second most frequency
+
+df$DifferenceTraveltoFirstMeeting[is.na(df$DifferenceTraveltoFirstMeeting)] = 259
+df$DifferenceTraveltoFirstMeeting <- as.numeric(df$DifferenceTraveltoFirstMeeting)
+
+```
+
+```{r}
+#Variable - Difference Travel to Last Meeting
+df$DifferenceTraveltoLastMeeting[df$DifferenceTraveltoLastMeeting == "NA"] <- NA
+sort(table(df$DifferenceTraveltoLastMeeting))
+df$DifferenceTraveltoLastMeeting[is.na(df$DifferenceTraveltoLastMeeting)] = 259
+df$DifferenceTraveltoLastMeeting <- as.numeric(df$DifferenceTraveltoLastMeeting)
+
+```
+
+```{r}
+#Variable - Poverty Code
+df$Poverty.Code[df$Poverty.Code == " "] <- NA
+mode4 <- find_mode(df$Poverty.Code)
+df$Poverty.Code[is.na(df$Poverty.Code)] = mode4
+```
+
+```{r}
+#Variable - MDR Low Grade
+df$MDR.Low.Grade[df$MDR.Low.Grade == " "] <- NA
+mode5 <- find_mode(df$MDR.Low.Grade)
+df$MDR.Low.Grade[is.na(df$MDR.Low.Grade)] = mode5
+
+```
+
+```{r}
+#Variable - Total School Enrollment
+df$Total.School.Enrollment[df$Total.School.Enrollment == " "] <- NA
+df$Total.School.Enrollment[is.na(df$Total.School.Enrollment)] = 0
+mean1 <- mean(df$Total.School.Enrollment)
+df$Total.School.Enrollment[is.na(df$Total.School.Enrollment)] = mean1
+
+```
+
+```{r}
+#Variable - Income Level
+df$Income.Level[df$Income.Level == " "] <- NA
+mode6 <- find_mode(df$Income.Level)
+df$Income.Level[is.na(df$Income.Level)] = mode6
+
+```
+
+```{r}
+#Variable - School Size Indicator
+df$SchoolSizeIndicator[df$SchoolSizeIndicator == " "] <- NA
+mode7 <- find_mode(df$SchoolSizeIndicator)
+df$SchoolSizeIndicator[is.na(df$SchoolSizeIndicator)] = mode7
+table(df$SchoolSizeIndicator)
+```
+
+```{r}
+df$Special.Pay= drop(c(is.na(df$Special.Pay)))
+```
+
+
+```{r}
+#Dropping columns that is least related to Target variable
+df <- df[ -c(9, 10, 11, 17, 18, 21, 39, 40, 52) ]
+
+```
+
+```{r}
+View(df)
+```
+
+__Making sure that there are no NA Values__
+
+```{r}
+df[!complete.cases(df), ]
+```
+
+```{r}
+sum(is.na(df))
+```
+
+___Analyzing Variables___
+
+
+```{r}
+ggplot(df, aes(df$Program.Code, fill=df$Retained.in.2012.)) + 
+  geom_bar(stat="count", width=2, fill="steelblue")+
+  theme_minimal()+ggtitle("Number of Program Code Retained in 2012") +
+  xlab("Program Codes") + ylab("Frequency")
+```
+
+__From the above graph , we can see Program HD has the highest Retention Rate in 2012__
+
+```{r}
+ggplot(df, aes(df$Region, ..count..)) + 
+  geom_bar(aes(fill = df$Retained.in.2012.),width=0.5,fill="tomato3",position = "dodge")+xlab("Regions") + ylab("Count") + 
+  ggtitle("Retention Rate in Different Regions")
+```
+
+__From the above graph , we can see Region "Other" has the highest Retention Rate in 2012__
+
+__Correlation between the important Numerical variables__
+```{r}
+SchoolEnrollment <- df$Total.School.Enrollment
+Days <- df$Days
+Retained <- df$Retained.in.2012.
+```
+
+
+```{r}
+df1 <- data.frame(SchoolEnrollment,Days,Retained)
+cor(df1)
+```
+
+```{r}
+ggcorrplot(cor(df1))
+```
+
+__Days Vs Retention in 2012__
+```{r}
+df %>%
+  ggplot(df, mapping = aes(x = Days, fill = Retained.in.2012.), colors(distinct = FALSE)) + 
+  geom_bar(color="black", fill="skyblue") + coord_flip()
+
+```
+__From the above graph , we can see that a trip of 5 days has the most retention in 2012__
+
+
+__Tuition Vs Retention in 2012__
+```{r}
+df %>%
+  ggplot(df, mapping = aes(x = Tuition, fill = Retained.in.2012.), colors(distinct = FALSE)) + 
+  geom_boxplot(fill="grey")
+
+```
+__The tuition rate is almost 1750 on an average for groups retained in 2012__
+
+__Poverty Code Vs Retention__
+
+```{r}
+df %>%
+  ggplot(df, mapping = aes(x = Poverty.Code, y= Retained.in.2012.), colour = Poverty.Code) + 
+         facet_wrap( ~ Retained.in.2012.) +   geom_point(alpha = 0.3, position = "jitter") +
+         geom_boxplot(alpha = 0, colour = "red")
+
+```
+__The above plot shows the distribution of poverty code for retained and not retained__
+
+```{r}
+Retained <- filter(df, Retained.in.2012. == 1)
+
+Retained %>%
+  ggplot(Retained, 
+       mapping= aes(x = Poverty.Code, y = Retained.in.2012.)) + 
+         geom_bar(stat = "identity", color = c("blue"))
+
+```
+__Departure Month vs Retention in 2012__
+
+```{r}
+counts <- table(df$DepartureMonth, df$Retained.in.2012.)
+mosaicplot(counts, xlab='Departure Month', ylab='Retention in 2012',main='Metrics by Month of Departure', col='steelblue')
+
+```
+```{r}
+ggplot(df, aes(Travel.Type, fill=df$Retained.in.2012.)) + 
+  geom_bar(stat="count", width=0.5, fill="violetred4")+
+  theme_minimal()+ggtitle("Number of Travel Types Retained in 2012") +
+  xlab("Travel Type") + ylab("Frequency")
+```
+__From the above graph , we can see Travel Type A has the highest Retention Rate in 2012__
+
+```{r}
+ggplot(df, aes(School.Type, fill=df$Retained.in.2012.)) + 
+  geom_bar(stat="count", width=0.5, fill="violet")+
+  theme_minimal()+ggtitle("Number of School Types Retained in 2012") +
+  xlab("School Type") + ylab("Frequency")
+```
+__From the above graph , we can see School Type PUBLIC has the highest Retention Rate in 2012__
+
+
+```{r}
+ggplot(df, aes(as.factor(School.Sponsor), fill=df$Retained.in.2012.)) + 
+  geom_bar(stat="count", width=0.2, fill="violetred4")+
+  theme_minimal()+ggtitle("School sponsors in 2012") +
+  xlab("School Sponsor") + ylab("Frequency")
+```
+__From the above graph , we can interpret that there is a high retention rate for sponsored schools__
+
+__Decision tree__
+
+```{r}
+pkgs <- c("moments", "ggplot2", "dplyr", "tidyr", "tidyverse")
+```
+
+```{r}
+df$Target <- as.factor(ifelse(df$Retained.in.2012. == 1 , "Yes", "No"))
+df$Retained.in.2012. <- NULL
+df <- df[-1]
+```
+
+```{r}
+library(rpart.plot)
+```
+
+__Splitting into Train and Test data (70% train and 30% test)__
+```{r}
+set.seed(123)
+index <- sample(2, nrow(df), replace= TRUE, prob = c(0.7, 0.3))
+train <- df[index == 1, ]
+test <- df[index == 2, ]
+
+#creating a formula with Target as a function of all independent variables
+myFormula <- Target ~ .
+
+#building and plotting the decision tree
+mytree <- rpart(myFormula, data=train)
+print(mytree)
+```
+```{r}
+rpart.plot(mytree)
+```
+```{r}
+#making prediction with training data
+
+tree_pred_class <- predict(mytree, train, type = "class")
+print("The train error is") 
+mean(train$Target != tree_pred_class) #training error
+```
+```{r}
+#making prediction with test data
+tree_pred_test <- predict(mytree, test, type = "class")
+print("The test error is") #test error
+mean(tree_pred_test != test$Target)
+
+```
+```{r}
+test$pred <- predict(mytree, test, type = "class")
+accuracy <- mean(test$pred == test$Target)
+print(accuracy)
+```
+__Pruning__
+
+__Using C&R Model__
+```{r}
+printcp(mytree)
+```
+```{r}
+preprun <- rpart(myFormula, data = train, parms = list(split="gini"), control = rpart.control(minsplit = 30, minbucket = 50, cp = 0.01))
+print(preprun)
+```
+```{r}
+rpart.plot(preprun)
+```
+```{r}
+test$pred_preprun <- predict(preprun, test, type = "class")
+accuracy_preprun <- mean(test$pred_preprun == test$Target)
+accuracy_preprun
+```
+__Using information gain to split data - C5 model__
+```{r}
+
+preprun_info <- rpart(myFormula, data = train, parms = list(split="information"), control = rpart.control(minsplit = 40, minbucket = 10, cp = 0.01))
+
+print(preprun_info)
+
+```
+
+```{r}
+
+rpart.plot(preprun_info)
+
+```
+
+```{r}
+
+test$pred_preprun_info <- predict(preprun_info, test, type = "class")
+
+accuracy_preprun_info <- mean(test$pred_preprun_info == test$Target)
+
+accuracy_preprun_info
+
+```
+__From above , we can see that C5 model is giving more accuracy__
+```{r}
+library(caret)
+```
+
+
+```{r}
+CM<-confusionMatrix(table(test$pred_preprun_info , test$Target))
+print(CM)
+```
+
+```{r}
+#calculate Recall
+sensitivity(test$pred_preprun_info, test$Target)
+```
+
+```{r}
+#calculate Precision
+precision(test$pred_preprun_info, test$Target)
+```
+```{r}
+library(ROCR)
+```
+
+
+```{r}
+tree.preds <- predict(preprun_info, test, type="prob")[, 2]
+```
+
+```{r}
+library(pROC)
+```
+
+```{r}
+tree.roc <- roc(test$Target, tree.preds)
+print(tree.roc)
+plot(tree.roc)
+```
+```{r}
+tree.auc <- auc(test$Target, tree.preds)
+print(tree.auc)
+```
+
+__Decision tree for 60-40 Split__
+```{r}
+set.seed(123)
+index1 <- sample(2, nrow(df), replace= TRUE, prob = c(0.6, 0.4))
+train1 <- df[index1 == 1, ]
+test1 <- df[index1 == 2, ]
+
+#creating a formula with Target as a function of all independent variables
+myFormula1 <- Target ~ .
+
+#building and plotting the decision tree
+mytree1 <- rpart(myFormula1, data=train1)
+print(mytree1)
+```
+
+```{r}
+rpart.plot(mytree1)
+```
+
+```{r}
+#making prediction with training data
+
+tree_pred_class_1 <- predict(mytree1, train1, type = "class")
+print("The train error is") 
+mean(train1$Target != tree_pred_class_1) #training error
+```
+
+```{r}
+#making prediction with test data
+tree_pred_test_1 <- predict(mytree1, test1, type = "class")
+print("The test error is") #test error
+mean(tree_pred_test_1 != test1$Target)
+
+```
+
+```{r}
+test1$pred1 <- predict(mytree1, test1, type = "class")
+accuracy1 <- mean(test1$pred1 == test1$Target)
+print(accuracy1)
+```
+__C&R__
+```{r}
+printcp(mytree)
+```
+
+```{r}
+preprun1 <- rpart(myFormula1, data = train1, parms = list(split="gini"), control = rpart.control(minsplit = 30, minbucket = 50, cp = 0.01))
+print(preprun1)
+```
+
+```{r}
+rpart.plot(preprun1)
+```
+
+```{r}
+test1$pred_preprun_1 <- predict(preprun1, test1, type = "class")
+accuracy_preprun_1 <- mean(test1$pred_preprun_1 == test1$Target)
+accuracy_preprun_1
+```
+__C5__
+
+```{r}
+
+preprun1_info <- rpart(myFormula1, data = train1, parms = list(split="information"), control = rpart.control(minsplit = 20, minbucket = 70, cp = 0.01))
+
+print(preprun1_info)
+
+```
+
+```{r}
+
+rpart.plot(preprun1_info)
+
+```
+
+ 
+
+```{r}
+
+test1$pred_preprun_1_info <- predict(preprun1_info, test1, type = "class")
+
+accuracy_preprun_1_info <- mean(test1$pred_preprun_1_info == test1$Target)
+
+accuracy_preprun_1_info
+
+```
+
+
+```{r}
+CM1<-confusionMatrix(table(test1$pred1 , test1$Target))
+print(CM1)
+
+```
+
+```{r}
+#calculate Recall
+sensitivity(test1$pred1, test1$Target)
+
+#calculate Precision
+precision(test1$pred1, test1$Target)
+```
+
+```{r}
+tree.preds_1 <- predict(preprun1, test1, type="prob")[, 2]
+```
+
+
+```{r}
+tree.roc_1 <- roc(test1$Target, tree.preds_1)
+print(tree.roc_1)
+plot(tree.roc_1)
+```
+```{r}
+tree.auc_1 <- auc(test1$Target, tree.preds_1)
+print(tree.auc_1)
+```
+
+__Splitting into Train and Test data (80% train and 20% test)__
+
+```{r}
+set.seed(123)
+index2 <- sample(2, nrow(df), replace= TRUE, prob = c(0.8, 0.2))
+train2 <- df[index2 == 1, ]
+test2 <- df[index2 == 2, ]
+
+#creating a formula with Target as a function of all independent variables
+myFormula2 <- Target ~ .
+
+#building and plotting the decision tree
+mytree2 <- rpart(myFormula2, data=train2)
+print(mytree2)
+```
+
+```{r}
+rpart.plot(mytree2)
+```
+
+
+```{r}
+#making prediction with training data
+
+tree_pred_class_2 <- predict(mytree2, train2, type = "class")
+print("The train error is") 
+mean(train2$Target != tree_pred_class_2) #training error
+```
+
+
+```{r}
+#making prediction with test data
+tree_pred_test_2 <- predict(mytree2, test2, type = "class")
+print("The test error is") #test error
+mean(tree_pred_test_2 != test2$Target)
+
+```
+
+```{r}
+test2$pred2 <- predict(mytree2, test2, type = "class")
+accuracy2 <- mean(test2$pred2 == test2$Target)
+print(accuracy2)
+```
+__C&R Model__
+```{r}
+printcp(mytree2)
+```
+
+```{r}
+preprun2 <- rpart(myFormula2, data = train2, parms = list(split="gini"), control = rpart.control(minsplit = 20, minbucket = 60, cp = 0.01))
+print(preprun2)
+```
+
+```{r}
+rpart.plot(preprun2)
+```
+
+```{r}
+test2$pred_preprun_2 <- predict(preprun2, test2, type = "class")
+accuracy_preprun_2 <- mean(test2$pred_preprun_2 == test2$Target)
+accuracy_preprun_2
+```
+__C5 model__
+
+```{r}
+
+preprun2_info <- rpart(myFormula2, data = train2, parms = list(split="information"), control = rpart.control(minsplit = 20, minbucket = 60, cp = 0.01))
+
+print(preprun2_info)
+
+```
+
+ 
+
+```{r}
+
+rpart.plot(preprun2_info)
+
+```
+
+ 
+
+```{r}
+
+test2$pred_preprun_2_info <- predict(preprun2_info, test2, type = "class")
+
+accuracy_preprun_2_info <- mean(test2$pred_preprun_2_info == test2$Target)
+
+accuracy_preprun_2_info
+
+```
+
+```{r}
+CM2<-confusionMatrix(table(test2$pred2 , test2$Target))
+print(CM2)
+
+```
+
+```{r}
+#calculate Recall
+sensitivity(test2$pred2, test2$Target)
+```
+
+```{r}
+#calculate Precision
+precision(test2$pred2, test2$Target)
+```
+
+```{r}
+tree.preds_2 <- predict(preprun2, test2, type="prob")[, 2]
+```
+
+
+```{r}
+tree.roc_2 <- roc(test2$Target, tree.preds_2)
+print(tree.roc_2)
+plot(tree.roc_2)
+```
+
+
+```{r}
+tree.auc_2 <- auc(test2$Target, tree.preds_2)
+print(tree.auc_2)
+```
+
+
+=====================================================================================================================
+
+__Random Forest__
+
+__We are building random forest with three different splits :70-30%, 60-40% and 80-20% for train and test data__
+
+
+
+```{r}
+#Since Random Forest cannot handle categorical predictors with more than 53 categories, converting few variables to character again
+
+df$Program.Code <- as.character(df$Program.Code)
+df$To.Grade <- as.character(df$To.Grade)
+df$From.Grade<- as.character(df$From.Grade)
+df$Group.State <- as.character(df$Group.State)
+df$Travel.Type <- as.character(df$Travel.Type)
+df$Special.Pay<- as.character(df$Special.Pay)
+df$Poverty.Code <- as.character(df$Poverty.Code)
+df$Region <- as.character(df$Region)
+df$CRM.Segment <- as.character(df$CRM.Segment)
+df$School.Type <- as.character(df$School.Type)
+df$MDR.Low.Grade<- as.character(df$MDR.Low.Grade)
+df$MDR.High.Grade <- as.character(df$MDR.High.Grade)
+df$SchoolGradeType<- as.character(df$SchoolGradeType)
+df$SchoolGradeTypeHigh <- as.character(df$SchoolGradeTypeHigh)
+df$SchoolGradeTypeLow <- as.character(df$SchoolGradeTypeLow)
+df$DifferenceTraveltoFirstMeeting<-as.character(df$DifferenceTraveltoFirstMeeting)
+df$DifferenceTraveltoLastMeeting<-as.character(df$DifferenceTraveltoLastMeeting)
+```
+
+__Splitting data into 70%-30%__
+
+```{r}
+set.seed(2323)
+#Splitting into Train and Test data (70% train and 30% test)
+ind_rf <- sample(2, nrow(df), replace = TRUE, prob = c(0.7, 0.3))
+train_rf <- df[ind_rf==1,]
+test_rf <- df[ind_rf==2,]
+```
+
+
+```{r}
+library(randomForest)
+ntree <- 100
+rf <- randomForest(Target~.,data=train_rf,ntree=ntree,mtry=sqrt(ncol(train_rf)-1),proximity=T,importance=T)
+print(rf)
+```
+```{r}
+plot(rf)
+```
+
+__The black line is the error rate on OOB, the red curve is the error rate for positive class, the green curve is for negative class__
+
+
+```{r}
+#Finding importance of the variables 
+importance(rf)
+````
+
+```{r}
+
+varImpPlot(rf)
+```
+
+
+```{r}
+#OOB Error rate
+rf$err.rate[ntree,1]
+```
+
+```{r}
+# Confusion matrix
+CM_rf <- table(rf$predicted, train_rf$Target, dnn = c("Predicted", "Actual"))
+CM_rf
+```
+
+
+```{r}
+confusionMatrix(rf$predicted, train_rf$Target)
+```
+
+__Evaluation Charts__
+
+```{r}
+score <- rf$votes[,"Yes"]
+pred_rf <- prediction(score,train_rf$Target)
+```
+
+```{r}
+# Gain Chart
+perf_rf <- performance(pred_rf, "tpr", "rpp")
+plot(perf_rf)
+```
+```{r}
+# Response Chart
+perf_rf <- performance(pred_rf, "ppv", "rpp")
+plot(perf_rf)
+```
+
+
+```{r}
+# Lift Chart 
+perf_rf <- performance(pred_rf, "lift", "rpp")
+plot(perf_rf)
+
+```
+
+```{r}
+# ROC Curve
+perf_rf <- performance(pred_rf, "tpr", "fpr")
+plot(perf_rf)
+```
+
+```{r}
+auc <- performance(pred_rf, "auc")
+auc <- unlist(slot(auc, "y.values"))
+auc
+```
+
+```{r}
+# Identifying the best value of mtry using validation set
+indx_rf <- sample(2, nrow(df), replace = T, prob= c(0.7,0.3))
+Train <- df[indx_rf == 1,]
+Validation <- df[indx_rf == 2, ]
+ 
+```
+
+```{r}
+pr.err <- c()
+for(mt in seq(1, ncol(df)-1))
+{
+  rf <- randomForest(Target ~., data = Train, ntree = 100, mtry = mt)
+  pred_val <- predict(rf, newdata = Validation, type = "class")
+  pr.err <- c(pr.err, mean(pred_val != Validation$Target))
+}
+```
+
+
+```{r}
+bestmtry <- which.min(pr.err)
+bestmtry
+```
+
+
+__Splitting data into 60%-40%__
+
+```{r}
+set.seed(788)
+#Splitting into Train and Test data (60% train and 40% test)
+ind_rf_1 <- sample(2, nrow(df), replace = TRUE, prob = c(0.6, 0.4))
+train_rf_1 <- df[ind_rf_1==1,]
+test_rf_1 <- df[ind_rf_1==2,]
+```
+
+
+```{r}
+library(randomForest)
+ntree <- 100
+rf1 <- randomForest(Target~.,data=train_rf_1,ntree=ntree,mtry=sqrt(ncol(train_rf_1)-1),proximity=T,importance=T)
+print(rf1)
+```
+
+```{r}
+plot(rf1)
+```
+
+__The black line is the error rate on OOB, the red curve is the error rate for positive class, the green curve is for negative class__
+
+
+```{r}
+#Finding importance of the variables 
+importance(rf1)
+```
+
+
+```{r}
+varImpPlot(rf1)
+```
+
+
+```{r}
+rf1$err.rate[ntree,1]
+```
+
+```{r}
+# Confusion matrix
+CM_rf_1 <- table(rf1$predicted, train_rf_1$Target, dnn = c("Predicted", "Actual"))
+CM_rf_1
+```
+
+
+```{r}
+confusionMatrix(rf1$predicted, train_rf_1$Target, positive = "Yes")
+```
+
+__Evaluation Charts__
+
+```{r}
+score1 <- rf1$votes[,"Yes"]
+pred_rf_1 <- prediction(score1,train_rf_1$Target)
+```
+
+```{r}
+# Gain Chart
+perf <- performance(pred_rf_1, "tpr", "rpp")
+plot(perf)
+```
+
+```{r}
+# Response Chart
+perf <- performance(pred_rf_1, "ppv", "rpp")
+plot(perf)
+```
+
+```{r}
+# Lift Chart 
+perf <- performance(pred_rf_1, "lift", "rpp")
+plot(perf)
+
+```
+
+```{r}
+# ROC Curve
+perf <- performance(pred_rf_1, "tpr", "fpr")
+plot(perf)
+```
+
+```{r}
+auc1 <- performance(pred_rf_1, "auc")
+auc1 <- unlist(slot(auc1, "y.values"))
+auc1
+```
+
+
+
+__Splitting data into 80%-20%__
+
+```{r}
+set.seed(652)
+#Splitting into Train and Test data (80% train and 20% test)
+ind_rf_2 <- sample(2, nrow(df), replace = TRUE, prob = c(0.8, 0.2))
+train_rf_2 <- df[ind_rf_2==1,]
+test_rf_2 <- df[ind_rf_2==2,]
+```
+
+
+```{r}
+library(randomForest)
+ntree <- 100
+rf2 <- randomForest(Target~.,data=train_rf_2,ntree=ntree,mtry=sqrt(ncol(train_rf_2)-1),proximity=T,importance=T)
+print(rf2)
+```
+
+```{r}
+plot(rf2)
+```
+
+__The black line is the error rate on OOB, the red curve is the error rate for positive class, the green curve is for negative class__
+
+
+```{r}
+#Finding importance of the variables 
+importance(rf2)
+```
+
+```{r}
+varImpPlot(rf2)
+```
+
+
+```{r}
+rf2$err.rate[ntree,1]
+```
+
+```{r}
+# Confusion matrix
+CM3 <- table(rf2$predicted, train_rf_2$Target, dnn = c("Predicted", "Actual"))
+CM3
+```
+
+
+```{r}
+confusionMatrix(rf2$predicted, train_rf_2$Target, positive = "Yes")
+```
+
+__Evaluation Charts__
+
+```{r}
+score2 <- rf2$votes[,"Yes"]
+pred_rf_2 <- prediction(score2,train_rf_2$Target)
+```
+
+```{r}
+# Gain Chart
+perf <- performance(pred_rf_2, "tpr", "rpp")
+plot(perf)
+```
+
+```{r}
+# Response Chart
+perf <- performance(pred_rf_2, "ppv", "rpp")
+plot(perf)
+```
+
+```{r}
+# Lift Chart 
+perf <- performance(pred_rf_2, "lift", "rpp")
+plot(perf)
+
+```
+
+```{r}
+# ROC Curve
+perf <- performance(pred_rf_2, "tpr", "fpr")
+plot(perf)
+```
+
+```{r}
+auc2 <- performance(pred_rf_2, "auc")
+auc2 <- unlist(slot(auc2, "y.values"))
+auc2
+```
+
+
+__We can see that accuracy is highest for 80%-20% i.e. 78.52% and OOB is 0.2148__
+
+
+__k-fold Cross validation__
+
+```{r}
+library(caret)
+```
+
+
+```{r}
+#Cross-validation method with k=10
+
+ctrl <- trainControl(method = "cv", number = 10)
+```
+
+
+```{r}
+#Using random forest method to evaluate performance
+model <- train(Target~., data = train, method = "rf", trControl = ctrl )
+
+```
+
+
+```{r}
+#Summary of k-fold CV               
+print(model)
+
+```
+
+__From the above models, we found that __
+
+__Decision tree - 80%-20% split has more accuracy, recall, precision and AUC__			
+__80-20__				
+__accuracy- 78.87__
+__recall- 74.1__	
+__prec- 70.8__	
+__auc- 77.17__
+				
+__Random forest__
+			
+__80-20	split__	
+__acc 78.52__
+__auc 85.07__
+__oob 21.48__
+
+__The Random forest is the better model__
+
+
+
+
+
